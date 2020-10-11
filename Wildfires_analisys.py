@@ -27,58 +27,106 @@ class Classifier:
         self.countries = self.getCountries()
         for country in self.countries:
             try:
-                x = threading.Thread(target=country.getClimate, args=())
+                x = threading.Thread(target=country.main, args=())
                 x.start()
-            except:
-                pass
-        
-        for country in self.countries:
-            country.riskAssessment()
-        
-        with open("countries.json", "r") as countries:
-            countries = json.load(countries)
-        
-        for i in range(len(countries)):
-            #print(str(countries[i]["Country"]) + self.countries[i])
-            if str(countries[i]["Country"]) == self.countries[i].name:
-                print(countries[i]["Country Code"])
-            else:
-                break
+            except Exception as e:
+                print(e)
+                del(country)
+
 
 
 class Country(Classifier):
     def __init__(self, name):
         self.name = name
+        self.capital = ""
+        self.country_code = ""
+        
         self.climate_url = "https://www.climatestotravel.com" + "/climate/" + self.name
+
         self.climate = {}
+        self.wind = 0
+        self.temperature = 0
+        self.temp_departure = 0
+        self.humidity = 0
+        self.palmer_draught = 0
+        self.days_since_recipit = 0
+
+        self.risk = 0
 
     def getClimate(self):
+        
+        self.getPage(self.climate_url)
+        
+        avg_temperature = self.soup.find("table", class_="cities")
+        avg_precipitation = self.soup.find("table", class_="precipit")
+        sunshine = self.soup.find("table", class_="sole")
+
+        months = [a.text for a in avg_temperature.find("tr", class_="title-table-new").find_all("th") if not a.text == "Month"]
+        
+        avg_temperature = dict(zip(months, list(zip([int(a.text) for a in avg_temperature.find_all("tr", class_="min-table")[1].find_all("td")], [int(a.text) for a in avg_temperature.find_all("tr", class_="max-table")[1].find_all("td")]))))
+        avg_precipitation = dict(zip(months, list(zip([int(a.text) for a in avg_precipitation.find_all("tr", class_="precipit-table")[1].find_all("td")[:-1]], [int(a.text) for a in avg_precipitation.find_all("tr", class_="precipit-table")[2].find_all("td")[:-1]]))))
+        sunshine = dict(zip(months, [int(a.text) for a in sunshine.find("tr", class_="sole-table").find_all("td")]))
+        
+        climate = {"Average Temperature" : avg_temperature,
+                    "Average Precipitation" : avg_precipitation,
+                    "Sunshine" : sunshine}
+        print(self.name + ": " + str(climate))
+        return climate
+            
+            
+    
+    def getWind(self):
+        self.getPage(self.climate_url)
+        return 0
+
+    def getTemperature(self):
+        self.getPage(self.climate_url)
+        return 0
+
+    def getTempDeparture(self):
+        self.getPage(self.climate_url)
+        return 0
+
+    def getHumidity(self):
+        self.getPage(self.climate_url)
+        return 0
+    
+    def getPalmerDraught(self):
+        self.getPage(self.climate_url)
+        return 0
+    
+    def getDaysSinceRecipit(self):
+        self.getPage(self.climate_url)
+        return 0
+    
+    def riskAssessment(self):
+        self.climate = self.getClimate()
+
+        self.wind = self.getWind()
+        self.temperature = self.getTemperature()
+        self.temp_departure = self.getTempDeparture()
+        self.humidity = self.getHumidity()
+        self.palmer_draught = self.getPalmerDraught()
+        self.days_since_recipit = self.getDaysSinceRecipit()
+
+        self.risk = self.wind * self.temperature * self.days_since_recipit / self.humidity
+        #print("Risk for " + self.name + ": " + str(self.risk))
+    
+    def main(self):
         t = 0
         while t < 3:
             try:
-                self.getPage(self.climate_url)
+                with open("countries.json", "r") as countries:
+                    for country in countries:
+                        if country["Country"] == self.name:
+                            self.capital = country["Capital"]
+                            self.country_code = country["Country Code"]
+                            break
                 
-                avg_temperature = self.soup.find("table", class_="cities")
-                avg_precipitation = self.soup.find("table", class_="precipit")
-                sunshine = self.soup.find("table", class_="sole")
-
-                months = [a.text for a in avg_temperature.find("tr", class_="title-table-new").find_all("th") if not a.text == "Month"]
-                
-                avg_temperature = dict(zip(months, list(zip([int(a.text) for a in avg_temperature.find("tr", class_="min-table").find_all("td")], [int(a.text) for a in avg_temperature.find("tr", class_="max-table").find_all("td")]))))
-                avg_precipitation = dict(zip(months, list(zip([int(a.text) for a in avg_precipitation.find_all("tr", class_="precipit-table")[0].find_all("td")[:-1]], [int(a.text) for a in avg_precipitation.find_all("tr", class_="precipit-table")[2].find_all("td")[:-1]]))))
-                sunshine = dict(zip(months, [int(a.text) for a in sunshine.find("tr", class_="sole-table").find_all("td")]))
-                
-                self.climate = {"Average Temperature" : avg_temperature,
-                        "Average Precipitation" : avg_precipitation,
-                        "Sunshine" : sunshine}
-                #print(self.name + ": " + str(self.climate))
-                return self.climate
-            except:
+                self.riskAssessment()
+            except Exception as e:
+                print(e)
                 t += 1
-    
-    def riskAssessment(self):
-        self.risk = 1
-        print("Risk for " + self.name + ": " + str(self.risk))
  
 if __name__ == "__main__":
     c = Classifier()
